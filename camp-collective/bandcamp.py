@@ -177,16 +177,21 @@ class Bandcamp:
 
         def writeFileToFile(resp, filename):
             with open(filename, 'wb') as fd:
-                for chunk in resp.iter_content(chunk_size=128):
-                    self.download_status[item.id]['downloaded_size'] += len(
-                        chunk)
-                    fd.write(chunk)
+                try:
+                    for chunk in resp.iter_content(chunk_size=128):
+                        self.download_status[item.id]['downloaded_size'] += len(
+                            chunk)
+                        fd.write(chunk)
+                    self.download_status[item.id]['status'] = 'done'
+                except Exception as e:
+                    # e.g. urllib3.exceptions.ProtocolError: ('Connection broken: IncompleteRead(90734 bytes read, 765947000 more expected)', IncompleteRead(90734 bytes read, 765947000 more expected))
+                    self.download_status[item.id]['status'] = 'failed'
+                    self.download_status[item.id]['error'] = repr(e)
 
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, writeFileToFile, resp, file)
-        self.download_status[item.id]['status'] = 'done'
 
-        return file
+        return None if self.download_status[item.id]['status'] == 'failed' else file
 
     async def get_page_data(self, url):
         resp = await self.session.get(url)
