@@ -175,6 +175,12 @@ class Bandcamp:
             resp.headers.get('content-length'))
         self.download_status[item.id]['downloaded_size'] = 0
 
+        if os.path.exists(file) and int(resp.headers['content-length']) == os.path.getsize(file):
+            # Already got it, don't re-download
+            self.download_status[item.id]['status'] = 'done'
+            resp.close()
+            return file
+
         def writeFileToFile(resp, filename):
             with open(filename, 'wb') as fd:
                 try:
