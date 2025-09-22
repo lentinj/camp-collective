@@ -1,4 +1,5 @@
 import json
+import zipfile
 
 from random import random
 import datetime
@@ -111,10 +112,25 @@ class Bandcamp:
         if file_format not in Bandcamp.FORMATS.keys():
             raise RuntimeError('File format %s is not supported by bandcamp' % file_format)
 
+        file = os.path.join(self.download_directory, item.local_filename(self.FORMATS[file_format]))
+
         self.download_status[item.id] = {
             "item": item,
             "status": "requested"
         }
+
+        if os.path.splitext(file)[1] == ".zip":
+            # Get set of file extensions inside the zipfile (if we can, it's fully downloaded)
+            try:
+                with zipfile.PyZipFile(file) as zf:
+                    zip_contents = set(os.path.splitext(i.filename)[[1]] for i in zf.infolist())
+            except Exception as e:
+                zip_contents = set()
+
+            # If the zip contains the format we expect + a cover.jpg, we already have it. Don't re-download
+            if zip_contents == set((".jpg", ".%s" % self.FORMATS[file_format])):
+                self.download_status[item.id]['status'] = 'done'
+                return file
 
         data = await self.get_page_data(item.download_url)
 
@@ -157,29 +173,10 @@ class Bandcamp:
             print('Failed to download ZIP')
             self.download_status[item.id]['status'] = 'failed'
 
-        match = re.search(r"filename\*=UTF-8''(.+)",
-                          resp.headers.get('content-disposition'))
-
-        if match:
-            file = os.path.join(self.download_directory,
-                                unquote(str(match.group(1))))
-        else:
-            if item.type == 'track':
-                file_ext = '.' + self.FORMATS[file_format]
-            else:
-                file_ext = '.zip'
-            file = os.path.join(self.download_directory, item.id + file_ext)
-
         self.download_status[item.id]['status'] = 'downloading'
         self.download_status[item.id]['size'] = int(
             resp.headers.get('content-length'))
         self.download_status[item.id]['downloaded_size'] = 0
-
-        if os.path.exists(file) and int(resp.headers['content-length']) == os.path.getsize(file):
-            # Already got it, don't re-download
-            self.download_status[item.id]['status'] = 'done'
-            resp.close()
-            return file
 
         def writeFileToFile(resp, filename):
             with open(filename, 'wb') as fd:

@@ -64,3 +64,10 @@ class Item:
         if self.purchased is not None:
             obj["purchased"] = self.purchased.isoformat()
         return obj
+
+    def local_filename(self, file_ext):
+        return "%s - %s.%s" % (
+            self.artist,
+            self.name,
+            file_ext if self.type == 'track' else 'zip',
+        )
