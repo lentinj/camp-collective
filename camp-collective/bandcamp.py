@@ -178,7 +178,7 @@ class Bandcamp:
         def writeFileToFile(resp, filename):
             with open(filename, 'wb') as fd:
                 try:
-                    for chunk in resp.iter_content(chunk_size=128):
+                    for chunk in resp.iter_content(chunk_size=1024 * 1024):
                         self.download_status[item.id]['downloaded_size'] += len(
                             chunk)
                         fd.write(chunk)
